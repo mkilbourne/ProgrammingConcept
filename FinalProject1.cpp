@@ -5,7 +5,7 @@
 #include <unordered_set>
 #include <algorithm>
 #include <cctype>
-
+// Mary Kilbourne, Anthony Sessoms, and Enrique Gutierrez collaborated on a spell checker based off a dictionary
 using namespace std;
 
 // --- From Enrique: Lowercase conversion utility ---
