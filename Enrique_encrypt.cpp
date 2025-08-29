@@ -1,31 +1,48 @@
-#include <bits/stdc++.h>
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
+#include <array>
+#include <cctype>
+#include <algorithm>
+
 using namespace std;
 
 static inline bool is_letter(char c) {
-    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+    return isalpha(static_cast<unsigned char>(c));
 }
 
-static string build_cipher_alphabet(string keyword) {
-    // Uppercase, remove duplicates, then append remaining letters Z..A
+static string build_cipher_alphabet(const string &keyword) {
     string key;
     key.reserve(26);
     vector<bool> seen(26, false);
+
+    // Add keyword letters (A–Z, uppercase, no duplicates)
     for (char c : keyword) {
-        if (c >= 'a' && c <= 'z') c = char(c - 'a' + 'A');
-        if (c >= 'A' && c <= 'Z') {
+        if (islower(static_cast<unsigned char>(c)))
+            c = static_cast<char>(toupper(c));
+        if (isupper(static_cast<unsigned char>(c))) {
             int idx = c - 'A';
-            if (!seen[idx]) { seen[idx] = true; key.push_back(c); }
+            if (!seen[idx]) {
+                seen[idx] = true;
+                key.push_back(c);
+            }
         }
     }
+
+    // Append remaining letters (Z → A)
     for (char c = 'Z'; c >= 'A'; --c) {
         int idx = c - 'A';
-        if (!seen[idx]) { seen[idx] = true; key.push_back(c); }
-        if (c == 'A') break; // prevent char underflow
+        if (!seen[idx]) {
+            seen[idx] = true;
+            key.push_back(c);
+        }
     }
+
     if (key.size() != 26) {
-        cerr << "Internal error: cipher alphabet length != 26\n";
-        exit(EXIT_FAILURE);
+        throw runtime_error("Internal error: cipher alphabet length != 26");
     }
+
     return key;
 }
 
@@ -46,6 +63,7 @@ int main(int argc, char *argv[]) {
     string keyword;
     vector<string> positional;
 
+    // Parse arguments
     for (int i = 1; i < argc; ++i) {
         string arg = argv[i];
         if (arg == "-d") {
@@ -66,22 +84,31 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    string cipher = build_cipher_alphabet(keyword);
-    array<char,26> forward{}; // A..Z -> cipher
-    array<char,26> reverse{}; // cipher -> A..Z
-    for (int i = 0; i < 26; ++i) {
-        char p = char('A' + i);
-        char c = cipher[i];
-        forward[i] = c;
-        reverse[c - 'A'] = p;
+    string cipher;
+    try {
+        cipher = build_cipher_alphabet(keyword);
+    } catch (const exception &e) {
+        cerr << "Error building cipher: " << e.what() << "\n";
+        return EXIT_FAILURE;
     }
 
-    ifstream in(positional[0], ios::binary);
+    // Forward and reverse mappings
+    array<char, 26> forward{};
+    array<char, 26> reverse{};
+    for (int i = 0; i < 26; ++i) {
+        char plain = char('A' + i);
+        char coded = cipher[i];
+        forward[i] = coded;
+        reverse[coded - 'A'] = plain;
+    }
+
+    ifstream in(positional[0]);
     if (!in) {
         cerr << "Error: could not open input file: " << positional[0] << "\n";
         return EXIT_FAILURE;
     }
-    ofstream out(positional[1], ios::binary);
+
+    ofstream out(positional[1]);
     if (!out) {
         cerr << "Error: could not open output file: " << positional[1] << "\n";
         return EXIT_FAILURE;
@@ -90,22 +117,15 @@ int main(int argc, char *argv[]) {
     char ch;
     while (in.get(ch)) {
         if (is_letter(ch)) {
-            bool lower = (ch >= 'a' && ch <= 'z');
-            char up = lower ? char(ch - 'a' + 'A') : ch;
-            char sub;
-            if (!decrypt) {
-                sub = forward[up - 'A'];
-            } else {
-                sub = reverse[up - 'A'];
-            }
-            if (lower) sub = char(sub - 'A' + 'a');
+            bool lower = islower(static_cast<unsigned char>(ch));
+            char up = static_cast<char>(toupper(ch));
+            char sub = decrypt ? reverse[up - 'A'] : forward[up - 'A'];
+            if (lower) sub = static_cast<char>(tolower(sub));
             out.put(sub);
         } else {
             out.put(ch);
         }
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 }
-
-
